@@ -400,6 +400,7 @@ class BertEncoder(nn.Module):
         super(BertEncoder, self).__init__()
         layer = BertLayer(config)
         self.layer = nn.ModuleList([copy.deepcopy(layer) for _ in range(config.num_hidden_layers)])
+        self.use_checkpoint = False
 
     def custom(self, layer_module):
         def custom_forward(*inputs):
@@ -408,13 +409,19 @@ class BertEncoder(nn.Module):
             return inputs
         return custom_forward
 
+    def set_use_checkpoint(self, use_checkpoint):
+        self.use_checkpoint = use_checkpoint
+        print('Setting checkpoint use flag to', self.use_checkpoint)
+
     def forward(self, hidden_states, attention_mask, output_all_encoded_layers=True):
         all_encoder_layers = []
+        require_grads = hidden_states.requires_grad
         for layer_module in self.layer:
-            if False:
+            if not require_grads or not self.use_checkpoint:
                 hidden_states = layer_module(hidden_states, attention_mask)
             else:
                 hidden_states = checkpoint.checkpoint(self.custom(layer_module), hidden_states, attention_mask)
+            require_grads = True
       
             if output_all_encoded_layers:
                 all_encoder_layers.append(hidden_states)
@@ -717,6 +724,9 @@ class BertModel(BertPreTrainedModel):
         self.encoder = BertEncoder(config)
         self.pooler = BertPooler(config)
         self.apply(self.init_bert_weights)
+
+    def set_use_checkpoint(self, use_checkpoint):
+        self.encoder.set_use_checkpoint(use_checkpoint)
 
     def forward(self, input_ids, token_type_ids=None, attention_mask=None, output_all_encoded_layers=True):
         if attention_mask is None:
