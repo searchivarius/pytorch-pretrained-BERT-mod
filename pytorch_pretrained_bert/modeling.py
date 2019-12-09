@@ -415,13 +415,11 @@ class BertEncoder(nn.Module):
 
     def forward(self, hidden_states, attention_mask, output_all_encoded_layers=True):
         all_encoder_layers = []
-        require_grads = hidden_states.requires_grad
         for layer_module in self.layer:
-            if not require_grads or not self.use_checkpoint:
+            if not hidden_states.require_grads or not self.use_checkpoint:
                 hidden_states = layer_module(hidden_states, attention_mask)
             else:
                 hidden_states = checkpoint.checkpoint(self.custom(layer_module), hidden_states, attention_mask)
-            require_grads = True
       
             if output_all_encoded_layers:
                 all_encoder_layers.append(hidden_states)
