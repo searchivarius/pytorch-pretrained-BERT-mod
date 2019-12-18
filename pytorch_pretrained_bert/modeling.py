@@ -400,7 +400,7 @@ class BertEncoder(nn.Module):
         super(BertEncoder, self).__init__()
         layer = BertLayer(config)
         self.layer = nn.ModuleList([copy.deepcopy(layer) for _ in range(config.num_hidden_layers)])
-        self.use_checkpoint = False
+        self.set_grad_checkpoint_param(0) # Let's not use it by default
 
     def custom(self, layer_module):
         def custom_forward(*inputs):
@@ -409,14 +409,19 @@ class BertEncoder(nn.Module):
             return inputs
         return custom_forward
 
-    def set_use_checkpoint(self, use_checkpoint):
-        self.use_checkpoint = use_checkpoint
-        print('Setting checkpoint use flag to', self.use_checkpoint)
+    # <=0 means no checkpointing at all
+    # 1 means every laer
+    # 2 means every other layer ...
+    def set_grad_checkpoint_param(self, checkpoint_every_layer):
+        self.checkpoint_every_layer = checkpoint_every_layer
+        print('Setting gradient checkpoint param to %d' % self.checkpoint_every_layer)
 
     def forward(self, hidden_states, attention_mask, output_all_encoded_layers=True):
         all_encoder_layers = []
+        layer_num = 0
         for layer_module in self.layer:
-            if not hidden_states.requires_grad or not self.use_checkpoint:
+            layer_num += 1
+            if not hidden_states.requires_grad or self.checkpoint_every_layer <= 0 or layer_num % self.checkpoint_every_layer !=0:
                 hidden_states = layer_module(hidden_states, attention_mask)
             else:
                 hidden_states = checkpoint.checkpoint(self.custom(layer_module), hidden_states, attention_mask)
@@ -723,8 +728,8 @@ class BertModel(BertPreTrainedModel):
         self.pooler = BertPooler(config)
         self.apply(self.init_bert_weights)
 
-    def set_use_checkpoint(self, use_checkpoint):
-        self.encoder.set_use_checkpoint(use_checkpoint)
+    def set_grad_checkpoint_param(self, use_checkpoint):
+        self.encoder.set_grad_checkpoint_param(use_checkpoint)
 
     def forward(self, input_ids, token_type_ids=None, attention_mask=None, output_all_encoded_layers=True):
         if attention_mask is None:
