@@ -728,8 +728,8 @@ class BertModel(BertPreTrainedModel):
         self.pooler = BertPooler(config)
         self.apply(self.init_bert_weights)
 
-    def set_grad_checkpoint_param(self, use_checkpoint):
-        self.encoder.set_grad_checkpoint_param(use_checkpoint)
+    def set_grad_checkpoint_param(self, checkpoint_every_layer):
+        self.encoder.set_grad_checkpoint_param(checkpoint_every_layer)
 
     def forward(self, input_ids, token_type_ids=None, attention_mask=None, output_all_encoded_layers=True):
         if attention_mask is None:
@@ -819,6 +819,9 @@ class BertForPreTraining(BertPreTrainedModel):
         self.cls = BertPreTrainingHeads(config, self.bert.embeddings.word_embeddings.weight)
         self.apply(self.init_bert_weights)
 
+    def set_grad_checkpoint_param(self, checkpoint_every_layer):
+        self.bert.set_grad_checkpoint_param(checkpoint_every_layer)
+
     def forward(self, input_ids, token_type_ids=None, attention_mask=None, masked_lm_labels=None, next_sentence_label=None):
         sequence_output, pooled_output = self.bert(input_ids, token_type_ids, attention_mask,
                                                    output_all_encoded_layers=False)
@@ -882,6 +885,9 @@ class BertForMaskedLM(BertPreTrainedModel):
         self.cls = BertOnlyMLMHead(config, self.bert.embeddings.word_embeddings.weight)
         self.apply(self.init_bert_weights)
 
+    def set_grad_checkpoint_param(self, checkpoint_every_layer):
+        self.bert.set_grad_checkpoint_param(checkpoint_every_layer)
+
     def forward(self, input_ids, token_type_ids=None, attention_mask=None, masked_lm_labels=None):
         sequence_output, _ = self.bert(input_ids, token_type_ids, attention_mask,
                                        output_all_encoded_layers=False)
@@ -943,6 +949,9 @@ class BertForNextSentencePrediction(BertPreTrainedModel):
         self.bert = BertModel(config)
         self.cls = BertOnlyNSPHead(config)
         self.apply(self.init_bert_weights)
+
+    def set_grad_checkpoint_param(self, checkpoint_every_layer):
+        self.bert.set_grad_checkpoint_param(checkpoint_every_layer)
 
     def forward(self, input_ids, token_type_ids=None, attention_mask=None, next_sentence_label=None):
         _, pooled_output = self.bert(input_ids, token_type_ids, attention_mask,
@@ -1010,6 +1019,9 @@ class BertForSequenceClassification(BertPreTrainedModel):
         self.classifier = nn.Linear(config.hidden_size, num_labels)
         self.apply(self.init_bert_weights)
 
+    def set_grad_checkpoint_param(self, checkpoint_every_layer):
+        self.bert.set_grad_checkpoint_param(checkpoint_every_layer)
+
     def forward(self, input_ids, token_type_ids=None, attention_mask=None, labels=None):
         _, pooled_output = self.bert(input_ids, token_type_ids, attention_mask, output_all_encoded_layers=False)
         pooled_output = self.dropout(pooled_output)
@@ -1074,6 +1086,9 @@ class BertForMultipleChoice(BertPreTrainedModel):
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
         self.classifier = nn.Linear(config.hidden_size, 1)
         self.apply(self.init_bert_weights)
+
+    def set_grad_checkpoint_param(self, checkpoint_every_layer):
+        self.bert.set_grad_checkpoint_param(checkpoint_every_layer)
 
     def forward(self, input_ids, token_type_ids=None, attention_mask=None, labels=None):
         flat_input_ids = input_ids.view(-1, input_ids.size(-1))
@@ -1144,6 +1159,9 @@ class BertForTokenClassification(BertPreTrainedModel):
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
         self.classifier = nn.Linear(config.hidden_size, num_labels)
         self.apply(self.init_bert_weights)
+
+    def set_grad_checkpoint_param(self, checkpoint_every_layer):
+        self.bert.set_grad_checkpoint_param(checkpoint_every_layer)
 
     def forward(self, input_ids, token_type_ids=None, attention_mask=None, labels=None):
         sequence_output, _ = self.bert(input_ids, token_type_ids, attention_mask, output_all_encoded_layers=False)
@@ -1219,6 +1237,9 @@ class BertForQuestionAnswering(BertPreTrainedModel):
         # self.dropout = nn.Dropout(config.hidden_dropout_prob)
         self.qa_outputs = nn.Linear(config.hidden_size, 2)
         self.apply(self.init_bert_weights)
+
+    def set_grad_checkpoint_param(self, checkpoint_every_layer):
+        self.bert.set_grad_checkpoint_param(checkpoint_every_layer)
 
     def forward(self, input_ids, token_type_ids=None, attention_mask=None, start_positions=None, end_positions=None):
         sequence_output, _ = self.bert(input_ids, token_type_ids, attention_mask, output_all_encoded_layers=False)
